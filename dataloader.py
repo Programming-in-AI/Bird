@@ -50,3 +50,4 @@ def read_txt(root_dir):
 def Dataloader(dataset, batch_size):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
     return dataloader
+
