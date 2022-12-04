@@ -1,23 +1,29 @@
 import os
-
+from PIL import Image
+from torchvision import transforms
 import torchvision
 import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import InterpolationMode
 from tqdm import tqdm
-from time import time
+import numpy as np
+import scipy
+import cv2
+import scipy.misc
+
 class CustomDataset(Dataset):
-    def __init__(self, root_dir, resize_factor):
-
-        data_augmentation = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.ToTensor(),
-                torchvision.transforms.Resize(resize_factor, interpolation=InterpolationMode.BILINEAR),
-                torchvision.transforms.RandomHorizontalFlip(p=0.5),
-                # torchvision.transforms.GaussianBlur((51,51), sigma=(0.1, 2.0)),
-                # torchvision.transforms.Normalize((0.3, 0.3, 0.3), (0.1, 0.1, 0.1))
-
-            ])
+    def __init__(self, root_dir, isTrain):
+        if isTrain:
+            data_augmentation =transforms.Compose([transforms.Resize((600, 600), InterpolationMode.BILINEAR),
+                                                   transforms.RandomCrop((448, 448)),
+                                                   transforms.RandomHorizontalFlip(),
+                                                   transforms.ToTensor(),
+                                                   transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+        else:
+            data_augmentation = transforms.Compose([transforms.Resize((600, 600), InterpolationMode.BILINEAR),
+                                                    transforms.CenterCrop((448, 448)),
+                                                    transforms.ToTensor(),
+                                                    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
 
         dataset = torchvision.datasets.ImageFolder(root_dir, transform=data_augmentation)
 
@@ -28,7 +34,9 @@ class CustomDataset(Dataset):
         line = read_txt('./CUB_200_2011/train_test_split.txt')
         print('[Training_data]')
         self.train_dataset = [dataset[i] for i in tqdm(range(len(line))) if line[i][-1] == '1']
+
         print()
+
         print('[Validating_data]')
         self.val_dataset = [dataset[i] for i in tqdm(range(len(line))) if line[i][-1] == '0']
 
