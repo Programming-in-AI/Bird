@@ -1,11 +1,14 @@
 import tqdm
 import os
 import torch
-
-def train_net(model, trainloader, val_loader, optimizer, epoch, device, loss_fn):
+from torch.utils.tensorboard import SummaryWriter
+def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, device, loss_fn):
     train_losses = []
+    val_losses = []
     val_acc = []
     train_acc=[]
+    # tensorboard
+    writer = SummaryWriter('logs/')
 
     # model save path
     os.makedirs('./models/', exist_ok=True)
@@ -37,44 +40,62 @@ def train_net(model, trainloader, val_loader, optimizer, epoch, device, loss_fn)
 
             _, y_pred = h.max(1)
             n_acc += (label == y_pred).float().sum().item()
+
+        scheduler.step()
+
+        # train_dataset loss
         train_losses.append(running_loss / i)
 
         # train_dataset acc
         train_acc.append(n_acc / total)
 
         # valid_dataset acc
-        val_acc.append(eval_net(model, val_loader, device))
+        val_loss, acc = eval_net(model, val_loader, device, loss_fn)
+        val_acc.append(acc)
+        val_losses.append(val_loss)
         # epoch
-        print(f'epoch: {epoch+1}, train_loss:{train_losses[-1]}, train_acc:{train_acc[-1]},val_acc: {val_acc[-1]}', flush=True)
+        print(f'epoch: {epoch+1}, train_loss:{round(train_losses[-1], 6)}, valid_loss:{round(val_losses[-1], 6)}, '
+              f'train_acc:{round(train_acc[-1],4)},val_acc: {round(val_acc[-1],4)}', flush=True)
+
+        writer.add_scalars("Accuracy", {'train_acc': train_acc[-1], 'val_acc': val_acc[-1]}, epoch)
+        writer.add_scalars("Loss", {'train_loss': train_losses[-1], 'val_loss': val_losses[-1]}, epoch)
+
 
         #model save
-        if epoch % 3 == 0 and epoch > 10:
-            torch.save(model.cpu().state_dict(),'./models/model_'+str(epoch)+'.pth')
+        torch.save(model.cpu().state_dict(),'./models/model_'+str(epoch)+'.pth')
 
-    return train_losses, train_acc, val_acc
+    writer.close()
+
+    return train_losses, val_losses, train_acc, val_acc
 
 
-def eval_net(model, data_loader, device):
+def eval_net(model, data_loader, device, loss_fn):
     # Dropout or BatchNorm 没了
     model.eval()
+    eval_loss = 0
     ys = []
     ypreds = []
-    for x, y in data_loader:
+
+    for i, (x, y) in enumerate(data_loader):
         # send to device
         x = x.to(device)
         y = y.to(device)
 
         with torch.no_grad():
-            _, y_pred = model(x).max(1)
+            h = model(x)
+            loss = loss_fn(h, y)
+            _, y_pred = h.max(1)
+
         ys.append(y)
         ypreds.append(y_pred)
-
+        eval_loss += loss.item()
 
     ys = torch.cat(ys)
     ypreds = torch.cat(ypreds)
-
     acc = (ys == ypreds).float().sum() / len(ys)
-    return acc.item()
+    eval_loss = eval_loss / i
+
+    return eval_loss, acc.item()
 
 
 

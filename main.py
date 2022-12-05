@@ -8,23 +8,22 @@ import torchvision.models as models
 from dataloader import CustomDataset
 from vit_pytorch import ViT
 
+torch.manual_seed(42)
+
+
 def main():
     root_dir = './CUB_200_2011/images/'
-
     resize_factor = [600,600]
     print('[Dataset Processing...]')
     Dataset = CustomDataset(root_dir, isTrain=True)
     print("Training data size : {}".format(Dataset.__len__()[0]))
     print("Validating data size : {}".format(Dataset.__len__()[1]))
-    batch_size = 8
+    batch_size = 4
     train_dataloader = Dataloader(Dataset.train_dataset, batch_size)
     val_dataloader = Dataloader(Dataset.val_dataset, batch_size)
 
-
-
-
     # model = Net()
-    torch.manual_seed(42)
+
     num_classes = 200
 
     # Resnet
@@ -56,7 +55,8 @@ def main():
     loss_function = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.1)
-    train_net(model, train_dataloader, val_dataloader, optimizer, epoch, device, loss_function)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[4, 6, 8], gamma=0.5)
+    train_net(model, train_dataloader, val_dataloader, optimizer, scheduler, epoch, device, loss_function)
 
 
 if __name__ == '__main__':
