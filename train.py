@@ -1,80 +1,54 @@
-import tqdm
-import os
-import torch
-
-def train_net(model, trainloader, val_loader, optimizer, epoch, device, loss_fn):
-    train_losses = []
-    val_acc = []
-    train_acc=[]
-
-    # model save path
-    os.makedirs('./models/', exist_ok=True)
-
-    for epoch in range(epoch):
-        running_loss = 0.0
-        # train mode
-        model.train()
-
-        total = 0
-        n_acc = 0
-
-        for i, (img, label) in tqdm.tqdm(enumerate(trainloader), total=len(trainloader)):
-
-            model = model.to(device)
-            img = img.to(device)
-            label = label.to(device)
-
-            h = model(img)
-
-            loss = loss_fn(h, label)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            batch_size = img.size(0)
-            running_loss += loss.item()
-            total += batch_size
-
-            _, y_pred = h.max(1)
-            n_acc += (label == y_pred).float().sum().item()
-        train_losses.append(running_loss / i)
-
-        # train_dataset acc
-        train_acc.append(n_acc / total)
-
-        # valid_dataset acc
-        val_acc.append(eval_net(model, val_loader, device))
-        # epoch
-        print(f'epoch: {epoch+1}, train_loss:{train_losses[-1]}, train_acc:{train_acc[-1]},val_acc: {val_acc[-1]}', flush=True)
-
-        #model save
-        if epoch % 3 == 0 and epoch > 10:
-            torch.save(model.cpu().state_dict(),'./models/model_'+str(epoch)+'.pth')
-
-    return train_losses, train_acc, val_acc
+from dataloader import CustomDataset, Dataloader
+import platform
+from train_utils import *
+import torchvision.models as models
 
 
-def eval_net(model, data_loader, device):
-    # Dropout or BatchNorm 没了
-    model.eval()
-    ys = []
-    ypreds = []
-    for x, y in data_loader:
-        # send to device
-        x = x.to(device)
-        y = y.to(device)
+def train(root_dir):
+    resize_factor = [600, 600]
+    print('[Dataset Processing...]')
+    Dataset = CustomDataset(root_dir, isTrain=True)
+    print("Training data size : {}".format(Dataset.__len__()[0]))
+    print("Validating data size : {}".format(Dataset.__len__()[1]))
+    batch_size = 4
+    train_dataloader = Dataloader(Dataset.train_dataset, batch_size)
+    val_dataloader = Dataloader(Dataset.val_dataset, batch_size)
 
-        with torch.no_grad():
-            _, y_pred = model(x).max(1)
-        ys.append(y)
-        ypreds.append(y_pred)
+    # model = Net()
 
+    num_classes = 200
 
-    ys = torch.cat(ys)
-    ypreds = torch.cat(ypreds)
+    # Resnet
+    model = models.resnet101(weights='ResNet101_Weights.DEFAULT')
+    fc_input_dim = model.fc.in_features
+    model.fc = torch.nn.Linear(fc_input_dim, num_classes)
 
-    acc = (ys == ypreds).float().sum() / len(ys)
-    return acc.item()
+    # viT
+    # model = ViT(
+    #     image_size=448,
+    #     patch_size=32,
+    #     num_classes=num_classes,
+    #     dim=1024,
+    #     depth=6,
+    #     heads=16,
+    #     mlp_dim=2048,
+    #     dropout=0.1,
+    #     emb_dropout=0.1
+    # )
+
+    if platform.system() == 'Darwin':
+        device = 'mps'
+    elif platform.system() == 'Windows':
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print("Device: {}".format(device))
+
+    epoch = 10
+    learning_rate = 0.0001
+    loss_function = torch.nn.CrossEntropyLoss().to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.1)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[3, 5, 7, 9], gamma=0.5)
+    train_net(model, train_dataloader, val_dataloader, optimizer, scheduler, epoch, device, loss_function)
 
 
 
