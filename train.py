@@ -49,6 +49,3 @@ def train(root_dir):
     # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.1)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[3, 5, 7, 9], gamma=0.5)
     train_net(model, train_dataloader, val_dataloader, optimizer, scheduler, epoch, device, loss_function)
-
-
-

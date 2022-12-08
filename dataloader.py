@@ -6,11 +6,10 @@ from torchvision.transforms import InterpolationMode
 from tqdm import tqdm
 
 
-
 class CustomDataset(Dataset):
     def __init__(self, root_dir, isTrain):
         if isTrain:
-            data_augmentation =transforms.Compose([transforms.Resize((600, 600), InterpolationMode.BILINEAR),
+            data_augmentation = transforms.Compose([transforms.Resize((600, 600), InterpolationMode.BILINEAR),
                                                    transforms.RandomCrop((448, 448)),
                                                    transforms.RandomHorizontalFlip(),
                                                    transforms.ToTensor(),
