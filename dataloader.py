@@ -6,11 +6,10 @@ from torchvision.transforms import InterpolationMode
 from tqdm import tqdm
 
 
-
 class CustomDataset(Dataset):
     def __init__(self, root_dir, isTrain):
         if isTrain:
-            data_augmentation =transforms.Compose([transforms.Resize((600, 600), InterpolationMode.BILINEAR),
+            data_augmentation = transforms.Compose([transforms.Resize((600, 600), InterpolationMode.BILINEAR),
                                                    transforms.RandomCrop((448, 448)),
                                                    transforms.RandomHorizontalFlip(),
                                                    transforms.ToTensor(),
@@ -46,7 +45,8 @@ class CustomDataset(Dataset):
 def read_txt(root_dir):
     f = open(root_dir, mode='r')
     line = f.read().split('\n')
-    del line[-1]
+    if line[-1] == '' or ' ':
+        del line[-1]
     line = sorted(line, key=lambda x: int(x.split(' ')[0]))
     return line
 

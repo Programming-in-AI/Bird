@@ -2,7 +2,7 @@ import tqdm
 import os
 import torch
 from torch.utils.tensorboard import SummaryWriter
-
+import platform
 
 def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, device, loss_fn):
     train_losses = []
@@ -98,3 +98,15 @@ def eval_net(model, data_loader, device, loss_fn):
     eval_loss = eval_loss / i
 
     return eval_loss, acc.item()
+
+
+def set_device():
+    if platform.system() == 'Darwin':
+        device = 'mps'
+    elif platform.system() == 'Windows':
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    else:
+        raise Exception("Only available Windows or mac OS")
+    print("Device: {}".format(device))
+
+    return device
