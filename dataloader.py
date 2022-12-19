@@ -45,7 +45,8 @@ class CustomDataset(Dataset):
 def read_txt(root_dir):
     f = open(root_dir, mode='r')
     line = f.read().split('\n')
-    del line[-1]
+    if line[-1] == '' or ' ':
+        del line[-1]
     line = sorted(line, key=lambda x: int(x.split(' ')[0]))
     return line
 
