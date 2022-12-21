@@ -10,9 +10,8 @@ def class_embedding(sentence, word2vec, emb_dim):
     # print('Word2vec shape: ', word2vec.shape)
     # print('Word2index shape: ', len(word2index))
     # print('Embedding dimension: ', emb_dim)
-    # print(sentence)
+
     batch, num_class, max_words = sentence.shape # num_class is the number of top-k class ids
-    # print(batch, num_class, max_words)
     rnn_size = 1024
     sentence = sentence.reshape(batch * num_class, max_words)
     sentence = sentence.long()
@@ -36,6 +35,7 @@ def class_embedding(sentence, word2vec, emb_dim):
         # print(i, sentence[:, i])
         # print(embed_ques_W)
         # print(embed_ques_W.size())
+        #print(sentence[:, i])
         cls_emb_linear = F.embedding(sentence[:, i], embed_ques_W)
         cls_emb_drop = F.dropout(cls_emb_linear, .8)
         cls_emb = torch.tanh(cls_emb_drop)
@@ -47,6 +47,7 @@ def class_embedding(sentence, word2vec, emb_dim):
         output, state = lstm_2(lstm_dropout_2(output), state)
 
     output = output.reshape(batch, rnn_size, num_class)
+
     return output
 
 
@@ -71,7 +72,7 @@ def sentences_to_indices(X, word_to_index, max_len):
     for i in range(m):  # loop over training examples
         # Convert the ith training sentence in lower case and split is into words. You should get a list of words.
         sentence_words = (X[i].lower()).split()
-        sentence_words = sentence_words[:max_len]
+        sentence_words = sentence_words[:max_len]  # ex)sentence_words = ['american', 'three', 'toed', 'woodpecker']
         # Initialize j to 0
         j = 0
         # Loop over the words of sentence_words
@@ -79,7 +80,7 @@ def sentences_to_indices(X, word_to_index, max_len):
             # Set the (i,j)th entry of X_indices to the index of the correct word.
             X_indices[i, j] = word_to_index[w]
             # Increment j to j + 1
-            #j = j + 1
+            j += 1
     return X_indices
 
 

@@ -42,7 +42,13 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
             _, y_pred_c = torch.topk(logit1, k=top_k, dim=1)  # y_pred_c : [batch_size, k ] 하나의 이미지마다 k개의 class가 있음
 
             indices, word2index, index2word, word2vec = make_indices()  # indices = [200,4]
-            tpk_cls =  select_topk_cls(indices, y_pred_c)  # tpk_cls =[bs, top_k, 4]
+
+            add_emb = np.expand_dims(word2vec[0], 0)
+            word2vec = np.append(word2vec, add_emb, axis=0)
+            word2vec[0] = np.zeros((word2vec.shape[1]))
+            word2vec = torch.Tensor(word2vec)
+
+            tpk_cls = select_topk_cls(indices, y_pred_c)  # tpk_cls =[bs, top_k, 4]
             # print('tpk_cls size: ',tpk_cls.size())
             cls_emb = class_embedding(tpk_cls, word2vec, emb_dim=300)  # cls_emb = [bs, 1024, k]
             cls_emb = cls_emb.to(device)
@@ -199,7 +205,8 @@ def fine_grained_classifier(x, device):
     x = nn.Dropout(p=0.2).to(device)(x)  # x= (bs, ch, 1, 1)
     x = nn.Conv2d(x.size(1), classes_num, kernel_size=1, bias=False).to(device)(x)  # x= (bs, 200, 1, 1)
     x = x.squeeze()  # x= (bs, 200)
-    if x.size(0) == 200 : x = x.unsqueeze(0)
+    if x.size(0) == 200:
+        x = x.unsqueeze(0)
     return x
 
 
