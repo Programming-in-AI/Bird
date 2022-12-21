@@ -29,7 +29,8 @@ class CustomDataset(Dataset):
         line = read_txt('./CUB_200_2011/train_test_split.txt')
 
         # testing short version
-        #line = line[0:30]
+        # line = line[0:int(len(line)/2)]
+        line = line[0:100]
 
         print('[Training_data]')
         self.train_dataset = [dataset[i] for i in tqdm(range(len(line))) if line[i][-1] == '1']

@@ -16,10 +16,10 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
     val_acc = []
     train_acc=[]
     # tensorboard
-    # writer = SummaryWriter('logs/')
+    #writer = SummaryWriter(str(top_k)+'_logs/')
 
     # model save path
-    os.makedirs('./'+str(top_k)+'_models/', exist_ok=True)
+    os.makedirs('./models/', exist_ok=True)
 
     for epoch in range(epoch):
         running_loss = 0.0
@@ -85,7 +85,7 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
             _, y_pred_mixed = logit_mixed.max(1)
 
             # loss
-            loss = loss_fn(logit2, label)
+            loss = loss_fn(logit2, label) + loss_fn(logit1, label)
 
             optimizer.zero_grad()
             loss.backward()
@@ -94,7 +94,6 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
             total += batch_size
 
             n_acc += (label == y_pred_mixed).float().sum().item()
-
 
         scheduler.step()
 
@@ -117,7 +116,7 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
         # writer.add_scalar('Lr', scheduler.optimizer.param_groups[0]['lr'], epoch)
 
         # model save
-        torch.save(model.cpu().state_dict(),'./models/model_'+str(epoch)+'.pth')
+        torch.save(model.cpu().state_dict(), './models/' + str(top_k) + '_model_'+str(epoch)+'.pth')
 
     # writer.close()
 
