@@ -1,9 +1,11 @@
 from dataloader import CustomDataset, Dataloader
 import platform
-from train_utils import *
+import torch
+from train_utils import train_net
 import torchvision.models as models
 from vit_pytorch import ViT
 import timm
+
 
 def train(root_dir, device):
 
@@ -33,4 +35,4 @@ def train(root_dir, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.1)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[3, 5, 7, 9, 11, 13, 15], gamma=0.5)
-    train_net(model, train_dataloader, val_dataloader, optimizer, scheduler, epoch, device, loss_function)
+    train_net(model, train_dataloader, val_dataloader, optimizer, scheduler, epoch, device, loss_function, top_k = 3)
