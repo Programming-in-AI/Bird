@@ -23,9 +23,9 @@ def class_embedding(sentence, word2vec, emb_dim):
 
     # create LSTM
     lstm_1 = nn.LSTM(emb_dim, rnn_size, batch_first=True)
-    lstm_dropout_1 = nn.Dropout(0.2, inplace=True)
+    lstm_dropout_1 = nn.Dropout(0.2, inplace=False)
     lstm_2 = nn.LSTM(rnn_size, rnn_size, batch_first=True)
-    lstm_dropout_2 = nn.Dropout(0.2, inplace=True)
+    lstm_dropout_2 = nn.Dropout(0.2, inplace=False)
 
     state = (torch.zeros(1, num_class, rnn_size),
              torch.zeros(1, num_class, rnn_size))

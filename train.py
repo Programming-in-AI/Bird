@@ -3,8 +3,8 @@ import platform
 import torch
 from train_utils import train_net
 import torchvision.models as models
-from vit_pytorch import ViT
-import timm
+# from vit_pytorch import ViT
+# import timm
 
 
 def train(root_dir, device):
@@ -30,7 +30,7 @@ def train(root_dir, device):
     # model = timm.create_model('vit_base_patch16_224', pretrained=True, num_classes=num_classes)
 
     epoch = 15
-    learning_rate = 0.0001
+    learning_rate = 0.00001
     loss_function = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.1)

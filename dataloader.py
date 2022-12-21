@@ -27,7 +27,9 @@ class CustomDataset(Dataset):
 
         # 일단 순서대로 저장이 돼 있을텐데 하나는 txt파일에 따라 순서대로 traindatset testdataset에 사진과 index를 넣어줄 것이다.
         line = read_txt('./CUB_200_2011/train_test_split.txt')
-        line=line[:100]
+
+        line = line[0:int(len(line)/2)]
+
         print('[Training_data]')
         self.train_dataset = [dataset[i] for i in tqdm(range(len(line))) if line[i][-1] == '1']
 
@@ -53,6 +55,6 @@ def read_txt(root_dir):
 
 
 def Dataloader(dataset, batch_size):
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
     return dataloader
 

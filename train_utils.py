@@ -90,7 +90,6 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
             n_acc += (label == y_pred_mixed).float().sum().item()
 
 
-
         scheduler.step()
 
         # train_dataset loss
@@ -200,7 +199,7 @@ def fine_grained_classifier(x, device):
     x = nn.Dropout(p=0.2).to(device)(x)  # x= (bs, ch, 1, 1)
     x = nn.Conv2d(x.size(1), classes_num, kernel_size=1, bias=False).to(device)(x)  # x= (bs, 200, 1, 1)
     x = x.squeeze()  # x= (bs, 200)
-
+    if x.size(0) == 200 : x = x.unsqueeze(0)
     return x
 
 
