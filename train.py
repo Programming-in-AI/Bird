@@ -29,10 +29,10 @@ def train(root_dir, device):
     # VIT
     # model = timm.create_model('vit_base_patch16_224', pretrained=True, num_classes=num_classes)
 
-    epoch = 15
+    epoch = 10
     learning_rate = 0.0001
     loss_function = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.1)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[3, 5, 7, 9, 11, 13, 15], gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[3, 5, 7, 9, 11, 13, ], gamma=0.5)
     train_net(model, train_dataloader, val_dataloader, optimizer, scheduler, epoch, device, loss_function, top_k = 3)

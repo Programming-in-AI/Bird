@@ -30,7 +30,7 @@ class CustomDataset(Dataset):
 
         # testing short version
         # line = line[0:int(len(line)/2)]
-        line = line[0:100]
+        line = line[0:30]
 
         print('[Training_data]')
         self.train_dataset = [dataset[i] for i in tqdm(range(len(line))) if line[i][-1] == '1']

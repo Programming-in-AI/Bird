@@ -5,11 +5,11 @@ import random
 
 import torch
 
-# random.seed(42)
-# torch.manual_seed(42)
-# torch.cuda.manual_seed(42)
-# torch.backends.cudnn.deterministic = True
-# torch.backends.cudnn.benchmark = False
+random.seed(42)
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 
 def main():
