@@ -18,7 +18,7 @@ def class_embedding(sentence, word2vec, emb_dim):
     sentence = sentence.long()
 
     # create word embedding
-    embed_ques_W = torch.tensor(word2vec, dtype=torch.float)
+    embed_ques_W = word2vec.clone().detach().requires_grad_(True)
     embed_ques_W = torch.nn.Parameter(embed_ques_W)
 
     # create LSTM
@@ -31,15 +31,15 @@ def class_embedding(sentence, word2vec, emb_dim):
              torch.zeros(1, num_class, rnn_size))
 
     for i in range(max_words):
-        print(sentence)
-        print(sentence.size())
-        print(i, sentence[:, i])
-        print(embed_ques_W)
-        print(embed_ques_W.size())
+        # print(sentence)
+        # print(sentence.size())
+        # print(i, sentence[:, i])
+        # print(embed_ques_W)
+        # print(embed_ques_W.size())
         cls_emb_linear = F.embedding(sentence[:, i], embed_ques_W)
         cls_emb_drop = F.dropout(cls_emb_linear, .8)
         cls_emb = torch.tanh(cls_emb_drop)
-        cls_emb = cls_emb.reshape(batch, num_class, emb_dim)
+        cls_emb = cls_emb.view(batch, num_class, emb_dim)
         cls_emb = cls_emb.permute(1, 0, 2)
 
         # print(cls_emb.shape, state[0].shape, state[1].shape)

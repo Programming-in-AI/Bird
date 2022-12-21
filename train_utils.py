@@ -43,37 +43,35 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
 
             indices, word2index, index2word, word2vec = make_indices()  # indices = [200,4]
             tpk_cls =  select_topk_cls(indices, y_pred_c)  # tpk_cls =[bs, top_k, 4]
-            print('tpk_cls size: ',tpk_cls.size())
+            # print('tpk_cls size: ',tpk_cls.size())
             cls_emb = class_embedding(tpk_cls, word2vec, emb_dim=300)  # cls_emb = [bs, 1024, k]
             cls_emb = cls_emb.to(device)
-            print('cls_emb size: ',cls_emb.size())
+            # print('cls_emb size: ',cls_emb.size())
 
             # CNN part
             FM_model = torch.nn.Sequential(*(list(model.children())[:-2]))
 
             # ftm
+            FM_model = FM_model.to(device)
             ftm = FM_model(img)  # ftm = [bs, 2048, 14, 14]
             bs, ch, W, H = ftm.size()
-            print(ftm.size())
             ftm = ftm.view(bs, ch, -1)  # ftm = (bs, 2048, 196)
 
             # v, cls_emb, att_w
-            v = FC(ftm, 1024, dropout_rate=.5)  # v = (bs, 1024, 196)
-            cls_emb = FC(cls_emb, 1024, dropout_rate=.8)  # cls_emb = (bs, 1024, k)
-            print('v.size: ',v.size())
-            print('cls_emb size:',cls_emb.size())
+            v = FC(ftm, 1024, dropout_rate=.5, device=device)  # v = (bs, 1024, 196)
+            cls_emb = FC(cls_emb, 1024, dropout_rate=.8, device=device)  # cls_emb = (bs, 1024, k)
             att_w = torch.einsum('bdv,bdq->bvq', v, cls_emb)  # att_w = (bs, 196, k)
-            att_w = nn.softmax(att_w, axis=1)  # att_w = (bs, 196, k)
+            att_w = nn.Softmax(dim=1)(att_w)  # att_w = (bs, 196, k)
 
-            J_emb = torch.einsum('bdv,bvq,bdq->bd', v, att_w, cls_emb)  # bap_emb = (bs, 1024)
-            J_emb = FC(J_emb, int(ftm.shape[-1]), dropout_rate = 0)  # bap_emb = (bs, 2048)
-            J_emb = J_emb.unsqueeze(2)  # bap_emb = (bs, 2048, 1)
+            J_emb = torch.einsum('bdv,bvq,bdq->bd', v, att_w, cls_emb)  # J_emb = (bs, 1024)
+            J_emb = FC2(J_emb, int(ftm.shape[1]), device=device)  # J_emb = (bs, 2048)
+            J_emb = J_emb.unsqueeze(2)  # J_emb = (bs, 2048, 1)
             J_emb = J_emb + ftm  # (bs, 2048, 1) + (bs, 2048, 196)
             # att_w = att_w.sum(dim=2, keepdim=True)  # att_w = （bs, 196, 1）
 
             J_emb = J_emb.view(bs, ch, H, W)
 
-            logit2 = fine_grained_classifier(J_emb)
+            logit2 = fine_grained_classifier(J_emb, device=device)
 
             _, y_pred_f = logit2.max(1)
             alpha = 0.5
@@ -159,7 +157,7 @@ def select_topk_cls(indices, y_pred_c):
         item = item.cpu().numpy()
         # print('indices[:item] size:', torch.Tensor(indices[item, :]).size())
         tmp.append(indices[item, :])
-    tmp = torch.Tensor(tmp)
+    tmp = torch.Tensor(np.array(tmp))
     # print('tmp size: ', tmp.size())
     topk_cls = torch.cat([tmp], dim=0)  # topk_cls =[bs, top_k, 4]
 
@@ -178,33 +176,29 @@ def set_device():
     return device
 
 
-def Joint_embedding(ftm, cls_emb):
-    bs, ch, W, H = ftm.size()
-    ftm = torch.view(bs, ch, -1) # ftm = [bs, ch, W*H]
-
-    Tm = FC(ftm, 1024, dropout_rate=.5) # TM = [bs, 1024, W*H]
-    cls_emb = FC(cls_emb, 1024, dropout_rate=.2) # not a GRU just FC layer
-    # 2 mode tensor product
-    atten_M = torch.einsum('bvd,bqd->bvq', Tm, cls_emb)
-    att_w = torch.softmax(atten_M, dim=1)  # 행끼리 합이 1일을 것이냐 열끼리 합이 1일 것이냐
-    return att_w
-
-
-def FC(x, out, dropout_rate): # x = (bs, 2048, 196)->(bs, 1024, 196)
+def FC(x, out, dropout_rate, device): # x = (bs, 2048, 196)->(bs, 1024, 196)
     bs, ch, pixel = x.size()
     x = x.view(-1,ch)
-    fc = nn.Linear(ch, out)
+    fc = nn.Linear(ch, out).to(device)
     x = fc(x)
-    x = nn.ReLU()(x)
+    x = nn.ReLU(inplace=False)(x)
     x = nn.Dropout(dropout_rate)(x)  # x = (bs * 196, 1024)
     return x.view(bs, out, pixel)
 
 
-def fine_grained_classifier(x):
+def FC2(x, out, device): # x = (bs, 1024)->(bs, 2048)
+    bs, in_dim = x.size()
+    fc = nn.Linear(in_dim, out).to(device)
+    x = fc(x)
+    x = nn.ReLU(inplace=False)(x)  # x = (bs, 2048)
+    return x
+
+
+def fine_grained_classifier(x, device):
     classes_num = 200
-    x = nn.AdaptiveAvgPool2d(output_size=1)(x)   # x= (bs, ch, H, W)
-    x = nn.Dropout(p=0.2)(x)  # x= (bs, ch, 1, 1)
-    x = nn.Conv2d(x.size(1), classes_num, kernel_size=1, bias=False)(x)  # x= (bs, 200, 1, 1)
+    x = nn.AdaptiveAvgPool2d(output_size=1).to(device)(x)   # x= (bs, ch, H, W)
+    x = nn.Dropout(p=0.2).to(device)(x)  # x= (bs, ch, 1, 1)
+    x = nn.Conv2d(x.size(1), classes_num, kernel_size=1, bias=False).to(device)(x)  # x= (bs, 200, 1, 1)
     x = x.squeeze()  # x= (bs, 200)
 
     return x
