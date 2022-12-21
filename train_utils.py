@@ -42,7 +42,7 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
             _, y_pred_c = torch.topk(logit1, k=top_k, dim=1)  # y_pred_c : [batch_size, k ] 하나의 이미지마다 k개의 class가 있음
 
             indices, word2index, index2word, word2vec = make_indices()  # indices = [200,4]
-            tpk_cls = select_topk_cls(indices, y_pred_c)  # tpk_cls =[bs, top_k, 4]
+            tpk_cls =  select_topk_cls(indices, y_pred_c)  # tpk_cls =[bs, top_k, 4]
             print('tpk_cls size: ',tpk_cls.size())
             cls_emb = class_embedding(tpk_cls, word2vec, emb_dim=300)  # cls_emb = [bs, 1024, k]
             cls_emb = cls_emb.to(device)
@@ -54,6 +54,7 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
             # ftm
             ftm = FM_model(img)  # ftm = [bs, 2048, 14, 14]
             bs, ch, W, H = ftm.size()
+            print(ftm.size())
             ftm = ftm.view(bs, ch, -1)  # ftm = (bs, 2048, 196)
 
             # v, cls_emb, att_w
@@ -189,13 +190,14 @@ def Joint_embedding(ftm, cls_emb):
     return att_w
 
 
-def FC(x, out, dropout_rate):
-    fc = nn.Linear(x.shape[1], out)
-    x = fc(x.view(x.shape[0], -1))
-    # relu = nn.relu()
-    # x = relu(x)
-    x = nn.Dropout(dropout_rate)(x)
-    return x.view(x.shape[0], out)
+def FC(x, out, dropout_rate): # x = (bs, 2048, 196)->(bs, 1024, 196)
+    bs, ch, pixel = x.size()
+    x = x.view(-1,ch)
+    fc = nn.Linear(ch, out)
+    x = fc(x)
+    x = nn.ReLU()(x)
+    x = nn.Dropout(dropout_rate)(x)  # x = (bs * 196, 1024)
+    return x.view(bs, out, pixel)
 
 
 def fine_grained_classifier(x):

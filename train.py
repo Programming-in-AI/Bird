@@ -22,7 +22,7 @@ def train(root_dir, device):
     num_classes = 200
 
     # Resnet
-    model = models.resnet101(weights='ResNet101_Weights.DEFAULT')
+    model = models.resnet101(pretrained=True)
     fc_input_dim = model.fc.in_features
     model.fc = torch.nn.Linear(fc_input_dim, num_classes)
 
