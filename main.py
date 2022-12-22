@@ -4,7 +4,7 @@ from test import test, test_per_class, test_per_class_topk
 import random
 
 import torch
-
+torch.
 random.seed(42)
 torch.manual_seed(42)
 torch.cuda.manual_seed(42)

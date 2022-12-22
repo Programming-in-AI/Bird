@@ -29,7 +29,7 @@ class CustomDataset(Dataset):
         line = read_txt('./CUB_200_2011/train_test_split.txt')
 
         # testing short version
-        # line = line[0:int(len(line)/2)]
+        #line = line[0:int(len(line)/3)]
 
 
         print('[Training_data]')

@@ -35,7 +35,7 @@ def class_embedding(sentence, word2vec, emb_dim):
         # print(i, sentence[:, i])
         # print(embed_ques_W)
         # print(embed_ques_W.size())
-        #print(sentence[:, i])
+        print(sentence[:, i])
         cls_emb_linear = F.embedding(sentence[:, i], embed_ques_W)
         cls_emb_drop = F.dropout(cls_emb_linear, .8)
         cls_emb = torch.tanh(cls_emb_drop)
@@ -43,8 +43,9 @@ def class_embedding(sentence, word2vec, emb_dim):
         cls_emb = cls_emb.permute(1, 0, 2)
 
         # print(cls_emb.shape, state[0].shape, state[1].shape)
-        output, state = lstm_1(lstm_dropout_1(cls_emb), state)
-        output, state = lstm_2(lstm_dropout_2(output), state)
+        with torch.no_grad():
+            output, state = lstm_1(lstm_dropout_1(cls_emb), state)
+            output, state = lstm_2(lstm_dropout_2(output), state)
 
     output = output.reshape(batch, rnn_size, num_class)
 
