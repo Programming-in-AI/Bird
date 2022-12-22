@@ -1,88 +1,128 @@
 import torch.nn as nn
+import torch.nn.functional as F
+import torch
 
+class ClassEmbedding(nn.Module):
+    def __init__(self, sentence, word2vec, emb_dim):
+        super(ClassEmbedding, self).__init__()
+        _, self.num_class, self.max_words = sentence.shape
+        self.word2vec = word2vec
+        self.emb_dim = emb_dim
 
-class SA_NET(nn.Module):
-    def __init__(self):
-        super(SA_NET, self).__init__()
-        # 맨처음에 3개가 들어오잖아 RGB, 32개필터를 만들어버려, 필터사이즈는 3이야
-        # self.conv1 = nn.Conv2d(input, output, filtersize, stride=2, padding=1)
-        # self.conv1 = nn.Conv2d(3, 16, 3, stride=2, padding=1)
-        # self.conv2 = nn.Conv2d(16, 32, 3, stride=2, padding=1)
-        # self.conv3 = nn.Conv2d(32, 64, 3, stride=2, padding=1)
-        #
-        # self.fc1 = nn.Linear(64 * 4 * 4, 512)
-        # self.fc2 = nn.Linear(512, 200)
-        #
-        # self.relu = nn.ReLU()
-        #
-        self.conv1 = nn.Conv2d(3, 32, 3, stride=2, padding=1)
+        # num_class is the number of top-k class ids
+        self.rnn_size = 1024
 
-        self.maxPool = nn.MaxPool2d(2)
-        self.relu = nn.ReLU()
-        self.flatten = nn.Flatten()
-        self.dropout = nn.Dropout(0.5)
+        # create word embedding
+        self.embed_ques_W = self.word2vec.clone().detach().requires_grad_(True)
+        self.embed_ques_W = nn.Parameter(self.embed_ques_W)
 
+        # create LSTM
+        self.lstm_1 = nn.LSTM(self.emb_dim, self.rnn_size, batch_first=True)
+        self.lstm_dropout_1 = nn.Dropout(0.2, inplace=False)
+        self.lstm_2 = nn.LSTM(self.rnn_size, self.rnn_size, batch_first=True)
+        self.lstm_dropout_2 = nn.Dropout(0.2, inplace=False)
 
-    # O = (Input image size - Kernel size  + 2 * Padding size)/2 + 1
+        self.state = (torch.zeros(1, self.num_class, self.rnn_size),
+                     torch.zeros(1, self.num_class, self.rnn_size))
+
+    def forward(self, sentence):
+        batch, _, _ = sentence.shape
+        sentence = sentence.reshape(batch * self.num_class, self.max_words)
+        sentence = sentence.long()
+        for i in range(self.max_words):
+            # print(self.sentence)
+            # print(self.sentence.size())
+            # print(i, self.sentence[:, i])
+            # print(self.embed_ques_W)
+            # print(self.embed_ques_W.size())
+            # print(self.sentence[:, i])
+
+            cls_emb_linear = F.embedding(sentence[:, i], self.embed_ques_W)
+            cls_emb_drop = F.dropout(cls_emb_linear, .8)
+            cls_emb = torch.tanh(cls_emb_drop)
+            cls_emb = cls_emb.view(batch, self.num_class, self.emb_dim)
+            cls_emb = cls_emb.permute(1, 0, 2)
+            output, state = self.lstm_1(self.lstm_dropout_1(cls_emb), self.state)
+            output, state = self.lstm_2(self.lstm_dropout_2(output), state)
+        output = output.reshape(batch, self.rnn_size, self.num_class)
+
+        return output
+class FC(nn.Module):
+    def __init__(self, x, out, dropout_rate, device):
+        super(FC, self).__init__()
+        self.out = out
+        self.bs, self.ch, self.topk = x.shape
+        self.dropout_rate = dropout_rate
+        self.device = device
+
+        self.fc = nn.Linear(self.ch, self.out).to(self.device)
+        self.relu = nn.ReLU(inplace=False)
+        self.dropout = nn.Dropout(self.dropout_rate)
+
     def forward(self, x):
-        # x = x  # batch_size x 3 x 256 x 256
-        #
-        # x = self.conv1(x)  # batch_size x 16 x 128 x 128
-        # x = self.relu(x)
-        # x = self.maxPool(x)  # batch_size x 16 x 64 x 64
-        #
-        # x = self.conv2(x)  # batch_size x 32 x 32 x 32
-        # x = self.relu(x)
-        # x = self.maxPool(x) # batch_size x 64 x 16 x 16
-        #
-        # x = self.conv3(x)  # bach_size x 128 x 8 x 8
-        # x = self.relu(x)
-        # x = self.maxPool(x)  # batch_size x 128 x 4 x 4
-        #
-        #
-        # x = x.view(-1, 64 * 4 * 4)  # batch_size x 128 * 4 * 4
-        # x = self.fc1(x)  # batch_size x 12
-        # x = self.fc2(x)
-        x1 = self.conv1(x)  # batch_size x 32 x 128 x 128
-        x1 = self.relu(x1)
-
-        x2 = self.conv2(x1)  # batch_size x 64 x 64 x 64
-        x2 = self.bn1(x2)
-        x2 = self.relu(x2)
-
-        x3 = self.conv3(x2)  # bach_size x 128 x 8 x 8
-        x3 = self.bn2(x3)
-        x3 = self.relu(x3)
-
-        x4 = self.conv4(x3)  # batch_size x 128 x 4 x 4
-        x4 = self.bn3(x4)
-        x4 = self.relu(x4)
-
-        x5 = self.conv5(x4)  # batch_size x 128 x 2 x 2
-        x5 = self.bn4(x5)
-        x5 = self.relu(x5)
-
-        x5 = x5 + x3
-
-        x6 = self.ups1(x5)
-        x6 = self.conv6(x6)  # batch_size x 64 x 4 x 4
-        x6 = self.bn5(x6)
-        x6 = self.relu(x6)
-
-        x6 = x6 + x2
-
-        x7 = self.ups2(x6)
-        x7 = self.conv7(x7)  # batch_size x 32 x 8 x 8
-        x7 = self.bn6(x7)
-        x7 = self.relu(x7)
-
-        x7 = x7 + x1
-
-        x8 = self.ups3(x7)
-        x8 = self.conv8(x8)  # batch_size x 3 x 16 x 16
-        x8 = self.th(x8)
-
-        x9 = self.flatten(x8)
-        x9 = self.dropout(x9)
-        x9 = self.fc(x9)
+        bs, ch, pixel = x.size()
+        x = x.view(-1, ch)
+        x = self.fc(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = x.view(bs, self.out, pixel)
         return x
+
+
+class FC2(nn.Module):
+    def __init__(self, out, device):
+        super(FC2, self).__init__()
+        self.out = out
+        self.device = device
+
+        self.fc = nn.Linear(1024, self.out).to(self.device)
+        self.relu = nn.ReLU(inplace=False)
+
+    def forward(self, x):
+        bs, in_dim = x.size()
+        x = self.fc(x)
+        x = self.relu(x)
+
+        return x
+
+
+class FineGrainedClassifier(nn.Module):
+    def __init__(self, x, device):
+        super(FineGrainedClassifier, self).__init__()
+        self.device = device
+        self.classes_num = 200
+
+        self.adaptive_avg_pool = nn.AdaptiveAvgPool2d(output_size=1).to(self.device)
+        self.dropout = nn.Dropout(p=0.2)
+        self.conv2d = nn.Conv2d(in_channels=x.size(1), out_channels=self.classes_num, kernel_size=1, bias=False).to(self.device)
+
+    def forward(self, x):
+        x = self.adaptive_avg_pool(x)  # x= (bs, ch, H, W)
+        x = self.dropout(x)  # x= (bs, ch, 1, 1)
+        x = self.conv2d(x)  # x= (bs, 200, 1, 1)
+        x = x.squeeze()  # x= (bs, 200)
+        if x.size(0) == 200:
+            x = x.unsqueeze(0)
+        return x
+
+#
+# class TotalNet(nn.Module):
+#     def __init__(self, ):
+#         super(TotalNet, self).__init__()
+#         self.out = out
+#         self.bs, self.ch, self.topk = x.shape
+#         self.dropout_rate = dropout_rate
+#         self.device = device
+#
+#         self.fc = nn.Linear(self.ch, self.out).to(self.device)
+#         self.relu = nn.ReLU(inplace=False)
+#         self.dropout = nn.Dropout(self.dropout_rate)
+#
+#     def forward(self, x):
+#         bs, ch, pixel = x.size()
+#         x = x.view(-1, ch)
+#         x = self.fc(x)
+#         x = self.relu(x)
+#         x = self.dropout(x)
+#         x = x.view(bs, self.out, pixel)
+#         return x

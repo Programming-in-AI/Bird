@@ -30,7 +30,7 @@ class CustomDataset(Dataset):
 
         # testing short version
         # line = line[0:int(len(line)/2)]
-        line = line[0:30]
+
 
         print('[Training_data]')
         self.train_dataset = [dataset[i] for i in tqdm(range(len(line))) if line[i][-1] == '1']
@@ -57,6 +57,6 @@ def read_txt(root_dir):
 
 
 def Dataloader(dataset, batch_size):
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     return dataloader
 

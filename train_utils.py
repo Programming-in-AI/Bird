@@ -3,7 +3,7 @@ import os
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import platform
-from dataloader import read_txt
+from Net import *
 import torch.nn as nn
 from ClassnameProcessing import read_glove_vecs, sentences_to_indices, class_embedding
 import numpy as np
@@ -36,7 +36,7 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
             label = label.to(device)
 
             logit1 = model(img) # h = [batch_size, 200]
-
+            #Total_logit = TotalNet(img)
             batch_size = img.size(0)
 
             _, y_pred_c = torch.topk(logit1, k=top_k, dim=1)  # y_pred_c : [batch_size, k ] 하나의 이미지마다 k개의 class가 있음
@@ -49,10 +49,13 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
             word2vec = torch.Tensor(word2vec)
 
             tpk_cls = select_topk_cls(indices, y_pred_c)  # tpk_cls =[bs, top_k, 4]
-            # print('tpk_cls size: ',tpk_cls.size())
-            cls_emb = class_embedding(tpk_cls, word2vec, emb_dim=300)  # cls_emb = [bs, 1024, k]
+
+
+            # ClassEmbedding instance
+            CE = ClassEmbedding(tpk_cls, word2vec, emb_dim=300)
+            cls_emb = CE(tpk_cls)
+            #cls_emb = class_embedding(tpk_cls, word2vec, emb_dim=300)  # cls_emb = [bs, 1024, k]
             cls_emb = cls_emb.to(device)
-            # print('cls_emb size: ',cls_emb.size())
 
             # CNN part
             FM_model = torch.nn.Sequential(*(list(model.children())[:-2]))
@@ -64,20 +67,28 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
             ftm = ftm.view(bs, ch, -1)  # ftm = (bs, 2048, 196)
 
             # v, cls_emb, att_w
-            v = FC(ftm, 1024, dropout_rate=.5, device=device)  # v = (bs, 1024, 196)
-            cls_emb = FC(cls_emb, 1024, dropout_rate=.8, device=device)  # cls_emb = (bs, 1024, k)
+            fc1 = FC(ftm, 1024, dropout_rate=.5, device=device)
+            v = fc1(ftm)
+            # v = FC(ftm, 1024, dropout_rate=.5, device=device)  # v = (bs, 1024, 196)
+            fc2 = FC(cls_emb, 1024, dropout_rate=.8, device=device)
+            cls_emb = fc2(cls_emb)
+            # cls_emb = FC(cls_emb, 1024, dropout_rate=.8, device=device)  # cls_emb = (bs, 1024, k)
             att_w = torch.einsum('bdv,bdq->bvq', v, cls_emb)  # att_w = (bs, 196, k)
             att_w = nn.Softmax(dim=1)(att_w)  # att_w = (bs, 196, k)
 
             J_emb = torch.einsum('bdv,bvq,bdq->bd', v, att_w, cls_emb)  # J_emb = (bs, 1024)
-            J_emb = FC2(J_emb, int(ftm.shape[1]), device=device)  # J_emb = (bs, 2048)
+            fc3 = FC2(int(ftm.shape[1]), device=device)
+            J_emb = fc3(J_emb)
+            # J_emb = FC2(J_emb, int(ftm.shape[1]), device=device)  # J_emb = (bs, 2048)
             J_emb = J_emb.unsqueeze(2)  # J_emb = (bs, 2048, 1)
             J_emb = J_emb + ftm  # (bs, 2048, 1) + (bs, 2048, 196)
             # att_w = att_w.sum(dim=2, keepdim=True)  # att_w = （bs, 196, 1）
 
             J_emb = J_emb.view(bs, ch, H, W)
 
-            logit2 = fine_grained_classifier(J_emb, device=device)
+            FGC = FineGrainedClassifier(J_emb, device=device)
+            logit2 = FGC(J_emb)
+            # logit2 = fine_grained_classifier(J_emb, device=device)
 
             _, y_pred_f = logit2.max(1)
             alpha = 0.5
@@ -104,7 +115,7 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
         train_acc.append(n_acc / total)
 
         # valid_dataset acc
-        val_loss, acc = eval_net(model, val_loader, device, loss_fn)
+        val_loss, acc = eval_net(model, FM_model, CE, fc1, fc2, fc3, FGC, val_loader, device, loss_fn, top_k)
         val_acc.append(acc)
         val_losses.append(val_loss)
         # epoch
@@ -123,25 +134,77 @@ def train_net(model, trainloader, val_loader, optimizer, scheduler, epoch, devic
     return train_losses, val_losses, train_acc, val_acc
 
 
-def eval_net(model, data_loader, device, loss_fn):
+def eval_net(model, FM_model, CE, fc1, fc2, fc3, FGC, data_loader, device, loss_fn, top_k):
     # Dropout or BatchNorm 没了
     model.eval()
+    FM_model.eval()
+    CE.eval()
+    fc1.eval()
+    fc2.eval()
+    fc3.eval()
+    FGC.eval()
     eval_loss = 0
     ys = []
     ypreds = []
 
-    for i, (x, y) in enumerate(data_loader):
+    for i, (img, label) in enumerate(data_loader):
+
         # send to device
-        x = x.to(device)
-        y = y.to(device)
-
+        model = model.to(device)
+        img = img.to(device)
+        label = label.to(device)
         with torch.no_grad():
-            h = model(x)
-            loss = loss_fn(h, y)
-            _, y_pred = h.max(1)
+            logit1 = model(img)  # h = [batch_size, 200]
 
-        ys.append(y)
-        ypreds.append(y_pred)
+            batch_size = img.size(0)
+
+            _, y_pred_c = torch.topk(logit1, k=top_k, dim=1)  # y_pred_c : [batch_size, k ] 하나의 이미지마다 k개의 class가 있음
+
+            indices, word2index, index2word, word2vec = make_indices()  # indices = [200,4]
+
+            add_emb = np.expand_dims(word2vec[0], 0)
+            word2vec = np.append(word2vec, add_emb, axis=0)
+            word2vec[0] = np.zeros((word2vec.shape[1]))
+            word2vec = torch.Tensor(word2vec)
+
+            tpk_cls = select_topk_cls(indices, y_pred_c)  # tpk_cls =[bs, top_k, 4]
+            cls_emb = CE(tpk_cls)  # cls_emb = [bs, 1024, k]
+            cls_emb = cls_emb.to(device)
+
+
+            # ftm
+            FM_model = FM_model.to(device)
+            ftm = FM_model(img)  # ftm = [bs, 2048, 14, 14]
+            bs, ch, W, H = ftm.size()
+            ftm = ftm.view(bs, ch, -1)  # ftm = (bs, 2048, 196)
+
+            # v, cls_emb, att_w
+            v = fc1(ftm)  # v = (bs, 1024, 196)
+            cls_emb = fc2(cls_emb)  # cls_emb = (bs, 1024, k)
+            att_w = torch.einsum('bdv,bdq->bvq', v, cls_emb)  # att_w = (bs, 196, k)
+            att_w = nn.Softmax(dim=1)(att_w)  # att_w = (bs, 196, k)
+
+            J_emb = torch.einsum('bdv,bvq,bdq->bd', v, att_w, cls_emb)  # J_emb = (bs, 1024)
+            J_emb = fc3(J_emb)  # J_emb = (bs, 2048)
+            J_emb = J_emb.unsqueeze(2)  # J_emb = (bs, 2048, 1)
+            J_emb = J_emb + ftm  # (bs, 2048, 1) + (bs, 2048, 196)
+            # att_w = att_w.sum(dim=2, keepdim=True)  # att_w = （bs, 196, 1）
+
+            J_emb = J_emb.view(bs, ch, H, W)
+
+            logit2 = FGC(J_emb)
+
+            _, y_pred_f = logit2.max(1)
+            alpha = 0.5
+            logit_mixed = alpha * logit1 + (1 - alpha) * logit2
+            _, y_pred_mixed = logit_mixed.max(1)
+
+            # loss
+            loss = loss_fn(logit2, label) + loss_fn(logit1, label)
+
+    ###
+        ys.append(label)
+        ypreds.append(y_pred_mixed)
         eval_loss += loss.item()
 
     ys = torch.cat(ys)
@@ -180,22 +243,22 @@ def set_device():
     return device
 
 
-def FC(x, out, dropout_rate, device): # x = (bs, 2048, 196)->(bs, 1024, 196)
-    bs, ch, pixel = x.size()
-    x = x.view(-1,ch)
-    fc = nn.Linear(ch, out).to(device)
-    x = fc(x)
-    x = nn.ReLU(inplace=False)(x)
-    x = nn.Dropout(dropout_rate)(x)  # x = (bs * 196, 1024)
-    return x.view(bs, out, pixel)
+# def FC(x, out, dropout_rate, device): # x = (bs, 2048, 196)->(bs, 1024, 196)
+#     bs, ch, pixel = x.size()
+#     x = x.view(-1,ch)
+#     fc = nn.Linear(ch, out).to(device)
+#     x = fc(x)
+#     x = nn.ReLU(inplace=False)(x)
+#     x = nn.Dropout(dropout_rate)(x)  # x = (bs * 196, 1024)
+#     return x.view(bs, out, pixel)
 
 
-def FC2(x, out, device): # x = (bs, 1024)->(bs, 2048)
-    bs, in_dim = x.size()
-    fc = nn.Linear(in_dim, out).to(device)
-    x = fc(x)
-    x = nn.ReLU(inplace=False)(x)  # x = (bs, 2048)
-    return x
+# def FC2(x, out, device): # x = (bs, 1024)->(bs, 2048)
+#     bs, in_dim = x.size()
+#     fc = nn.Linear(in_dim, out).to(device)
+#     x = fc(x)
+#     x = nn.ReLU(inplace=False)(x)  # x = (bs, 2048)
+#     return x
 
 
 def fine_grained_classifier(x, device):
@@ -225,7 +288,3 @@ def make_indices():
     indices = torch.tensor(indices)
 
     return indices, word2index, index2word, word2vec
-
-
-
-
