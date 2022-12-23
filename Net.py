@@ -7,7 +7,7 @@ import _pickle as pickle
 
 
 class TotalNet(nn.Module):
-    def __init__(self, model, FM_model, top_k, alpha, device):
+    def __init__(self, model, FM_model, top_k, device):
         super(TotalNet, self).__init__()
         self.logit1 = None
         self.logit2 = None
@@ -21,7 +21,7 @@ class TotalNet(nn.Module):
 
         self.att_w = None
         self.top_k = top_k
-        self.alpha = alpha
+        self.alpha = 0.5
         self.device = device
         self.indices, self.word2index, self.index2word, self.word2vec = make_indices()  # indices = [200,4]
 
@@ -72,7 +72,10 @@ class TotalNet(nn.Module):
         ###############################
         self.logit2 = self.FGC(J_emb)
 
-        logit_mixed = self.alpha * self.logit1 + (1 - self.alpha) * self.logit2
+        _, y_pred_f = torch.topk(self.logit2, k=self.top_k, dim=1)
+        with torch.no_grad():
+            logit_mixed = Decision_Box_Algorithm(self.logit1,self.logit2, self.top_k, self.device)
+        # logit_mixed = self.alpha * self.logit1 + (1 - self.alpha) * self.logit2
 
         return logit_mixed
 
@@ -99,38 +102,35 @@ class ClassEmbedding(nn.Module):
         self.lstm_dropout_1 = nn.Dropout(0.2, inplace=False)
         self.lstm_2 = nn.LSTM(self.rnn_size, self.rnn_size, batch_first=True)
         self.lstm_dropout_2 = nn.Dropout(0.2, inplace=False)
+        self.gru_dropout = nn.Dropout(0.2, inplace=False)
+        self.gru = nn.GRU(self.emb_dim, self.rnn_size, batch_first=True)
+        self.state = (torch.zeros(1, self.top_k, self.rnn_size, requires_grad=True).to(self.device)
+                      , torch.zeros(1, self.top_k, self.rnn_size, requires_grad=True).to(self.device))
 
-
-
-    def forward(self, sentence):
+    def forward(self, sentence):  # sentence = [bs, top_k, 4]
         batch, num_class, _ = sentence.shape
-
-        self.state = (torch.zeros(1, self.top_k, self.rnn_size, requires_grad=False).to(self.device),
-                      torch.zeros(1, self.top_k, self.rnn_size, requires_grad=False).to(self.device))
-
         sentence = sentence.reshape(batch * num_class, self.max_words)
         sentence = sentence.long()
 
-        for i in range(self.max_words):
-            # print(self.sentence)
-            # print(self.sentence.size())
-            # print(i, self.sentence[:, i])
-            # print(self.embed_ques_W)
-            # print(self.embed_ques_W.size())
-            # print(self.sentence[:, i])
+        for i in range(self.max_words):  # one word
 
+            # cls_emb_linear (bs * top_k, 300)
             cls_emb_linear = F.embedding(sentence[:, i], self.embed_ques_W)
             cls_emb_drop = F.dropout(cls_emb_linear, .8)
+
             cls_emb = torch.tanh(cls_emb_drop)
             cls_emb = cls_emb.view(batch, num_class, self.emb_dim)
             cls_emb = cls_emb.permute(1, 0, 2)
+            # # cls_emb => output = (top_k, bs, 300) => (top_k, bs, 1024)
             with torch.no_grad():
+
                 output, self.state = self.lstm_1(self.lstm_dropout_1(cls_emb), self.state)
                 output, self.state = self.lstm_2(self.lstm_dropout_2(output), self.state)
+        # output, self.state = self.gru(self.gru_dropout(cls_emb), self.state)
 
         output = output.view(batch, self.rnn_size, num_class)
 
-        return output
+        return output  # cls_emb = (bs, 1024, top_k)
 
 
 class FC(nn.Module):
@@ -186,6 +186,7 @@ class FineGrainedClassifier(nn.Module):
             x = x.unsqueeze(0)
         return x
 
+
 def select_topk_cls(indices, y_pred_c):
     # indices = [200,4], y_pred_c = [bs, top_k]
     indices = indices.detach().cpu().numpy()
@@ -200,7 +201,6 @@ def select_topk_cls(indices, y_pred_c):
     topk_cls = torch.cat([tmp], dim=0)  # topk_cls =[bs, top_k, 4]
 
     return topk_cls
-
 
 
 def make_indices():
@@ -219,3 +219,36 @@ def make_indices():
     indices = torch.tensor(indices)
 
     return indices, word2index, index2word, word2vec
+
+
+def Decision_Box_Algorithm(logit1, logit2, top_k, device):
+    # y_pred_c, y_pred_f = [bs, top_k]
+    _, y_pred_c = torch.topk(logit1, k=top_k, dim=1)
+    _, y_pred_f = torch.topk(logit2, k=top_k, dim=1)
+    alpha = []
+    tmp=[]
+
+    # Algorithm
+    for i, (item_c, item_f, batch_logit1) in enumerate(zip(y_pred_c, y_pred_f, logit1)):  # item_c=[top_k]
+        if item_c[torch.topk(item_c, 1).indices.item()] > 2 * item_c[torch.topk(item_f, 2).indices[1].item()]:
+            idx = torch.topk(item_c, 2).indices[1].item()
+            batch_logit1 = nn.Softmax(0)(batch_logit1)
+            val = 1-batch_logit1[idx].item()
+            alpha.append(val)
+        else:
+            if item_c[torch.topk(item_c, 2).indices[1].item()] == item_f[torch.topk(item_f, 2).indices[1].item()]:
+                alpha.append(0.5)
+            else:
+                alpha.append(0)
+
+        data = alpha[i] * logit1[i] + (1 - alpha[i]) * logit2[i]
+        data = data.detach().cpu()
+        tmp.append(data)
+
+    logit_mixed = torch.stack(tmp).to(device)
+
+    return logit_mixed
+
+
+
+

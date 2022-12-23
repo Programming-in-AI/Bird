@@ -41,8 +41,8 @@ def train_net(TotalNet, trainloader, val_loader, optimizer, scheduler, epoch, de
 
 
             # loss
-            loss = loss_fn(TotalNet.logit2, label) + loss_fn(TotalNet.logit1, label)
-
+            #loss = loss_fn(TotalNet.logit2, label) + loss_fn(TotalNet.logit1, label)
+            loss = loss_fn(TotalNet.logit2, label)
             # loss = loss_fn(logit_mixed, label)
             optimizer.zero_grad()
             loss.backward()
