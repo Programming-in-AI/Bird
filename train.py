@@ -7,7 +7,7 @@ import Net
 # import timm
 
 
-def train(root_dir, device):
+def train(root_dir, device, top_k):
 
     print('[Dataset Processing...]')
     dataset = CustomDataset(root_dir, isTrain=True)
@@ -40,5 +40,4 @@ def train(root_dir, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.1)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[3, 5, 6, 7,8, 9], gamma=0.5)
-    train_net(TotalNet, train_dataloader, val_dataloader, optimizer, scheduler, epoch, device, loss_function, top_k = 3)
-    # top_k = 3
+    train_net(TotalNet, train_dataloader, val_dataloader, optimizer, scheduler, epoch, device, loss_function, top_k = top_k)

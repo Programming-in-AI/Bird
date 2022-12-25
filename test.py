@@ -33,6 +33,7 @@ def test(model_path, input_img_path):
 
     # output should be tensor type
     class_num = torch.argmax(output).item()
+    print('[Output]')
     print(f'This image is {class_num}th class')
 
     return class_num
@@ -128,8 +129,8 @@ def test_per_class_topk(root_dir, model_path, device, top_k):
         df.loc[i] = [str(i) + 'th', str(item) + '%']
     df.to_csv('topk_'+str(top_k)+'_acc_per_class.txt', sep='\t', index=False)
 
-    line = read_txt('./CUB_200_2011/train_test_split.txt')
+    # line = read_txt('./CUB_200_2011/train_test_split.txt')
+    #
+    # val_sequence = np.array([int(item.split(' ')[0]) for item in line if line.split(' ')[1] == '0'])
 
-    val_sequence = np.array([int(item.split(' ')[0]) for item in line if line.split(' ')[1] == '0'])
-
-    return class_acc, val_sequence[wrong_index]
+    return class_acc, # val_sequence[wrong_index]
