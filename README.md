@@ -47,8 +47,7 @@ pip install -r ./requirements.txt
 ![image](https://user-images.githubusercontent.com/70640776/209456611-9efe5196-1f7a-452a-92e8-1215be9079d1.png)
 
 - Input : (batchsize, 3, 448, 448) image 
-- Output : (batchsize, 200) array
-(output is the class number that model predict)
+- Output : (batchsize, 200) array (but when you test which sample image is in which class, you can ony get a class number)
 
 
 ## Dataset
@@ -75,7 +74,7 @@ main.py -m test -md './CUB_200_2011/images/' -sd './CUB_200_2011/images/144.Comm
  ```python
 main.py -m test_perclass -md './CUB_200_2011/images/' -sd './CUB_200_2011/images/144.Common_Tern/Common_Tern_0078_149161.jpg' -k 3
 ```
-5. 
+
 ## Demo Image
 ![스크린샷 2022-12-25 오후 4 29 10](https://user-images.githubusercontent.com/70640776/209461633-8ea00b1c-60b3-4f51-a07e-2e0e7685f2bf.png)
 
