@@ -62,17 +62,17 @@ pip install -r ./requirements.txt
 1. train 
 - you can train the model with condition that you want
  ```python
-main.py -m train -k 3
+python 3 main.py -m train -k 3
 ```
 2. test
 - you can test the model with sample image which class of bird it is 
  ```python
-main.py -m test -md './CUB_200_2011/images/' -sd './CUB_200_2011/images/144.Common_Tern/Common_Tern_0078_149161.jpg' 
+python 3 main.py -m test -md './CUB_200_2011/images/' -sd './CUB_200_2011/images/144.Common_Tern/Common_Tern_0078_149161.jpg' 
 ```
 3. test_per_class_topk_k
 - you can test top_k accuracy of each class
  ```python
-main.py -m test_perclass -md './CUB_200_2011/images/' -sd './CUB_200_2011/images/144.Common_Tern/Common_Tern_0078_149161.jpg' -k 3
+python 3 main.py -m test_perclass -md './CUB_200_2011/images/' -sd './CUB_200_2011/images/144.Common_Tern/Common_Tern_0078_149161.jpg' -k 3
 ```
 
 ## Demo Image
