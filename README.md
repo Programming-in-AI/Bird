@@ -56,7 +56,7 @@ pip install -r ./requirements.txt
 - Output: 200 size array, you can get which class of bird it is 
 - we only use the image of birds, not a bounding box or different information
 
-## pre-trained Model link
+## Pre-trained Model link
 - you can download each moedel at below link
 - [Basic ResNet101](https://drive.google.com/file/d/1-rFWooB0R9DPvXBYfWScL9S2f_9tksbH/view?usp=share_link): fine tuned model which is scratched in PyTorch
 - [Basic Embedding + Joint Embedding](https://drive.google.com/file/d/1yysWS-HZB2qfpD_GIhtup4mFOBkf8Fdz/view?usp=share_link): scratched in PyTorch
