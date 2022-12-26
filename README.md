@@ -58,8 +58,8 @@ pip install -r ./requirements.txt
 
 ## Example of train & test method
 - you can download each moedel at below link
-- [Basic ResNet101] (https://drive.google.com/file/d/1-rFWooB0R9DPvXBYfWScL9S2f_9tksbH/view?usp=share_link): fine tuned model which is scratched in PyTorch
-- [Basic Embedding + Joint Embedding] (https://drive.google.com/file/d/1yysWS-HZB2qfpD_GIhtup4mFOBkf8Fdz/view?usp=share_link): scratched in PyTorch
+- [Basic ResNet101](https://drive.google.com/file/d/1-rFWooB0R9DPvXBYfWScL9S2f_9tksbH/view?usp=share_link): fine tuned model which is scratched in PyTorch
+- [Basic Embedding + Joint Embedding](https://drive.google.com/file/d/1yysWS-HZB2qfpD_GIhtup4mFOBkf8Fdz/view?usp=share_link): scratched in PyTorch
 
 ## Example of train & test method
 
